@@ -2,7 +2,7 @@
 
 > Connect Claude or any MCP client to live location intelligence — weather, geocoding, timezone, and nearby places — using only free open APIs.
 
-[Live demo on Render](https://geo-mcp-exoi.onrender.com) • [Swagger docs](/docs) • [GitHub repo](https://github.com/yourname/geo-mcp)
+[Live demo on Render](https://geo-mcp-exoi.onrender.com) • [Swagger docs](https://geo-mcp-exoi.onrender.com/docs) • [GitHub repo](https://github.com/FjolleI/geo-mcp)
 
 ---
 
