@@ -6,7 +6,7 @@ No API key required. Rate limit: 1 req/sec per OSM policy.
 import httpx
 
 BASE_URL = "https://nominatim.openstreetmap.org"
-HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/yourname/geo-mcp)"}
+HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/fjollei/geo-mcp)"}
 
 
 async def geocode(address: str) -> dict:

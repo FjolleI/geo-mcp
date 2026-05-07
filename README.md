@@ -33,7 +33,7 @@ All APIs are **free and open** — no signup, no keys, no rate-limit surprises f
 ## Quick start
 
 ```bash
-git clone https://github.com/yourname/geo-mcp
+git clone https://github.com/fjollei/geo-mcp
 cd geo-mcp
 pip install -r requirements.txt
 python server.py

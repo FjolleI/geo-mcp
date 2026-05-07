@@ -6,7 +6,7 @@ No API key required.
 import httpx
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/yourname/geo-mcp)", "Accept": "application/json"}
+HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/fjollei/geo-mcp)", "Accept": "application/json"}
 
 CATEGORY_MAP = {
     "restaurant": ("amenity", "restaurant"),
