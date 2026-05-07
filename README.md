@@ -1,12 +1,22 @@
 # 🌍 geo-mcp
 
-> A geospatial MCP server that gives Claude (or any MCP client) real-world location superpowers — weather, geocoding, timezone, and nearby places. Zero API keys required.
+> Connect Claude or any MCP client to live location intelligence — weather, geocoding, timezone, and nearby places — using only free open APIs.
+
+[Live demo on Render](https://geo-mcp-exoi.onrender.com) • [Swagger docs](/docs) • [GitHub repo](https://github.com/yourname/geo-mcp)
 
 ---
 
 ## What it does
 
-Connect Claude Desktop, Cursor, or any MCP client to live geospatial data through 5 clean tools:
+`geo-mcp` exposes a lightweight MCP surface for real-world geospatial queries. It provides:
+
+- `geocode_address` — address to latitude/longitude
+- `reverse_geocode_coords` — location to human-readable address
+- `current_weather` — live weather data for any city
+- `location_timezone` — timezone and local time for coordinates
+- `places_nearby` — nearby points of interest from OpenStreetMap
+
+Built for developers, open source, and fast integration with modern tools.
 
 | Tool | Description | API Used |
 |------|-------------|----------|
@@ -36,11 +46,17 @@ docker build -t geo-mcp .
 docker run -p 8000:8000 geo-mcp
 ```
 
+## Live demo
+[Live geo-mcp on Render](https://geo-mcp-exoi.onrender.com)
+
 ### Deploy as an HTTP service
 
 This repo now includes `app.py`, a lightweight HTTP wrapper around the same adapter logic used by the MCP server. It is useful for Render and other container hosts.
 
 - Health check: `/healthz`
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
+- Reverse proxy docs: `/redoc`
 - Geocode: `/geocode?address=...`
 - Reverse geocode: `/reverse-geocode?lat=...&lon=...`
 - Weather: `/weather?city=...`
