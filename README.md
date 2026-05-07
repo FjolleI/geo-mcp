@@ -36,6 +36,17 @@ docker build -t geo-mcp .
 docker run -p 8000:8000 geo-mcp
 ```
 
+### Deploy as an HTTP service
+
+This repo now includes `app.py`, a lightweight HTTP wrapper around the same adapter logic used by the MCP server. It is useful for Render and other container hosts.
+
+- Health check: `/healthz`
+- Geocode: `/geocode?address=...`
+- Reverse geocode: `/reverse-geocode?lat=...&lon=...`
+- Weather: `/weather?city=...`
+- Timezone: `/timezone?lat=...&lon=...`
+- Nearby places: `/places?lat=...&lon=...&category=...&radius_m=...`
+
 ---
 
 ## Connect to Claude Desktop

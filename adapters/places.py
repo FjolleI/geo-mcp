@@ -6,27 +6,29 @@ No API key required.
 import httpx
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/yourname/geo-mcp)", "Accept": "application/json"}
 
 CATEGORY_MAP = {
-    "restaurant": 'amenity"="restaurant',
-    "cafe": 'amenity"="cafe',
-    "hospital": 'amenity"="hospital',
-    "pharmacy": 'amenity"="pharmacy',
-    "school": 'amenity"="school',
-    "supermarket": 'shop"="supermarket',
-    "park": 'leisure"="park',
-    "hotel": 'tourism"="hotel',
-    "bank": 'amenity"="bank',
-    "gas_station": 'amenity"="fuel',
+    "restaurant": ("amenity", "restaurant"),
+    "cafe": ("amenity", "cafe"),
+    "hospital": ("amenity", "hospital"),
+    "pharmacy": ("amenity", "pharmacy"),
+    "school": ("amenity", "school"),
+    "supermarket": ("shop", "supermarket"),
+    "park": ("leisure", "park"),
+    "hotel": ("tourism", "hotel"),
+    "bank": ("amenity", "bank"),
+    "gas_station": ("amenity", "fuel"),
 }
 
 
-def _build_query(lat: float, lon: float, tag: str, radius: int) -> str:
+def _build_query(lat: float, lon: float, key: str, value: str, radius: int) -> str:
     return f"""
 [out:json][timeout:10];
 (
-  node["{tag}](around:{radius},{lat},{lon});
-  way["{tag}](around:{radius},{lat},{lon});
+  node["{key}"="{value}"](around:{radius},{lat},{lon});
+  way["{key}"="{value}"](around:{radius},{lat},{lon});
+  relation["{key}"="{value}"](around:{radius},{lat},{lon});
 );
 out center 10;
 """
@@ -39,12 +41,22 @@ async def nearby_places(lat: float, lon: float, category: str, radius_m: int = 1
         valid = list(CATEGORY_MAP.keys())
         return {"error": f"Unknown category '{category}'. Valid options: {valid}"}
 
-    query = _build_query(lat, lon, tag, radius_m)
+    key, value = tag
+    query = _build_query(lat, lon, key, value, radius_m)
 
-    async with httpx.AsyncClient() as client:
-        r = await client.post(OVERPASS_URL, data={"data": query}, timeout=15)
-        r.raise_for_status()
-        data = r.json()
+    async with httpx.AsyncClient(headers=HEADERS) as client:
+        try:
+            r = await client.post(OVERPASS_URL, data={"data": query}, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+        except httpx.HTTPStatusError as exc:
+            return {
+                "error": "Overpass API request failed",
+                "status_code": exc.response.status_code,
+                "details": exc.response.text,
+            }
+        except Exception as exc:
+            return {"error": f"Nearby places request failed: {exc}"}
 
     places = []
     for el in data.get("elements", []):
