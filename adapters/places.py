@@ -3,10 +3,14 @@ Nearby places adapter — powered by Overpass API (OpenStreetMap).
 No API key required.
 """
 
+import asyncio
 import httpx
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/fjollei/geo-mcp)", "Accept": "application/json"}
+# The public Overpass instance regularly takes 30s+ to answer, mostly queueing.
+TIMEOUT = httpx.Timeout(60, connect=10)
+RETRY_STATUS = {429, 502, 503, 504}
 
 CATEGORY_MAP = {
     "restaurant": ("amenity", "restaurant"),
@@ -24,7 +28,7 @@ CATEGORY_MAP = {
 
 def _build_query(lat: float, lon: float, key: str, value: str, radius: int) -> str:
     return f"""
-[out:json][timeout:10];
+[out:json][timeout:25];
 (
   node["{key}"="{value}"](around:{radius},{lat},{lon});
   way["{key}"="{value}"](around:{radius},{lat},{lon});
@@ -44,9 +48,13 @@ async def nearby_places(lat: float, lon: float, category: str, radius_m: int = 1
     key, value = tag
     query = _build_query(lat, lon, key, value, radius_m)
 
-    async with httpx.AsyncClient(headers=HEADERS) as client:
+    async with httpx.AsyncClient(headers=HEADERS, timeout=TIMEOUT) as client:
         try:
-            r = await client.post(OVERPASS_URL, data={"data": query}, timeout=15)
+            r = await client.post(OVERPASS_URL, data={"data": query})
+            if r.status_code in RETRY_STATUS:
+                # The public instance is often overloaded; one retry usually helps.
+                await asyncio.sleep(2)
+                r = await client.post(OVERPASS_URL, data={"data": query})
             r.raise_for_status()
             data = r.json()
         except httpx.HTTPStatusError as exc:
@@ -55,8 +63,13 @@ async def nearby_places(lat: float, lon: float, category: str, radius_m: int = 1
                 "status_code": exc.response.status_code,
                 "details": exc.response.text,
             }
+        except httpx.TimeoutException:
+            return {
+                "error": f"Overpass API did not respond within {TIMEOUT.read:.0f}s. "
+                "The service is probably busy; try again later or with a smaller radius.",
+            }
         except Exception as exc:
-            return {"error": f"Nearby places request failed: {exc}"}
+            return {"error": f"Nearby places request failed: {type(exc).__name__}: {exc}"}
 
     places = []
     for el in data.get("elements", []):
