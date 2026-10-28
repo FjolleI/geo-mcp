@@ -1,54 +1,97 @@
 """
 Geocoding adapter — powered by Nominatim (OpenStreetMap).
-No API key required. Rate limit: 1 req/sec per OSM policy.
+No API key required. The usage policy allows at most 1 request per second
+and asks clients to cache results, so both are enforced here.
 """
 
-import httpx
+import asyncio
+import time
+
+from adapters.http import ServiceError, request_json
 
 BASE_URL = "https://nominatim.openstreetmap.org"
-HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/fjollei/geo-mcp)"}
+
+MIN_INTERVAL_S = 1.0
+CACHE_TTL_S = 24 * 3600
+CACHE_MAX = 1000
+
+_lock = asyncio.Lock()
+_last_request = 0.0
+_cache: dict[tuple, tuple[float, object]] = {}
 
 
-async def geocode(address: str) -> dict:
-    """Address → lat/lon."""
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{BASE_URL}/search",
-            params={"q": address, "format": "json", "limit": 1},
-            headers=HEADERS,
-            timeout=10,
-        )
-        r.raise_for_status()
-        results = r.json()
+async def _nominatim(path: str, params: dict):
+    """GET a Nominatim endpoint, cached and throttled to 1 request/second."""
+    key = (path, tuple(sorted(params.items())))
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_TTL_S:
+        return hit[1]
 
-    if not results:
-        return {"error": f"No results found for: {address}"}
+    global _last_request
+    async with _lock:
+        wait = _last_request + MIN_INTERVAL_S - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        try:
+            data = await request_json("GET", f"{BASE_URL}{path}", service="Nominatim", params=params)
+        finally:
+            _last_request = time.monotonic()
 
-    top = results[0]
+    if len(_cache) >= CACHE_MAX:
+        _cache.pop(next(iter(_cache)))
+    _cache[key] = (time.monotonic(), data)
+    return data
+
+
+MAX_LIMIT = 10
+
+
+def _params(language: str | None, **params) -> dict:
+    # Without accept-language, Nominatim answers in the local language of each place.
+    return {**params, "format": "json", **({"accept-language": language} if language else {})}
+
+
+def _result(item: dict) -> dict:
     return {
-        "address": address,
-        "display_name": top["display_name"],
-        "lat": float(top["lat"]),
-        "lon": float(top["lon"]),
-        "type": top.get("type", "unknown"),
-        "source": "OpenStreetMap Nominatim",
+        "display_name": item["display_name"],
+        "lat": float(item["lat"]),
+        "lon": float(item["lon"]),
+        "type": item.get("type", "unknown"),
     }
 
 
-async def reverse_geocode(lat: float, lon: float) -> dict:
-    """lat/lon → address."""
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{BASE_URL}/reverse",
-            params={"lat": lat, "lon": lon, "format": "json"},
-            headers=HEADERS,
-            timeout=10,
-        )
-        r.raise_for_status()
-        data = r.json()
+async def geocode(address: str, limit: int = 1, language: str | None = None) -> dict:
+    """
+    Address → lat/lon of the best match. With limit > 1, "results" also lists
+    up to that many candidates, for ambiguous names like "Springfield".
+    language: e.g. "de" or "en" for display names.
+    """
+    if not 1 <= limit <= MAX_LIMIT:
+        return {"error": f"limit must be within 1..{MAX_LIMIT}", "status_code": 400}
+    try:
+        results = await _nominatim("/search", _params(language, q=address, limit=limit))
+    except ServiceError as exc:
+        return exc.to_dict()
+
+    if not results:
+        return {"error": f"No results found for: {address}", "status_code": 404}
+
+    result = {"address": address, **_result(results[0])}
+    if limit > 1:
+        result["results"] = [_result(item) for item in results]
+    result["source"] = "OpenStreetMap Nominatim"
+    return result
+
+
+async def reverse_geocode(lat: float, lon: float, language: str | None = None) -> dict:
+    """lat/lon → address. language: e.g. "de" or "en"."""
+    try:
+        data = await _nominatim("/reverse", _params(language, lat=lat, lon=lon))
+    except ServiceError as exc:
+        return exc.to_dict()
 
     if "error" in data:
-        return {"error": data["error"]}
+        return {"error": data["error"], "status_code": 404}
 
     addr = data.get("address", {})
     return {
