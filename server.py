@@ -43,6 +43,8 @@ async def location_timezone(lat: float, lon: float) -> dict:
 async def places_nearby(lat: float, lon: float, category: str, radius_m: int = 1000) -> dict:
     """
     Find nearby places of interest using OpenStreetMap.
+    Each place has "open_now" (yes/no/unknown), already evaluated for the
+    current local time. Report "unknown" honestly instead of guessing.
 
     Categories: restaurant, cafe, hospital, pharmacy, school,
                 supermarket, park, hotel, bank, gas_station
