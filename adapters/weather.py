@@ -3,8 +3,8 @@ Weather adapter — powered by Open-Meteo (free, no API key required).
 Geocodes the city via Nominatim first, then fetches weather.
 """
 
-import httpx
 from adapters.geocoding import geocode
+from adapters.http import ServiceError, request_json
 
 WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -27,9 +27,9 @@ async def get_weather(city: str) -> dict:
 
     lat, lon = location["lat"], location["lon"]
 
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            WEATHER_URL,
+    try:
+        data = await request_json(
+            "GET", WEATHER_URL, service="Open-Meteo",
             params={
                 "latitude": lat,
                 "longitude": lon,
@@ -44,10 +44,9 @@ async def get_weather(city: str) -> dict:
                 ],
                 "timezone": "auto",
             },
-            timeout=10,
         )
-        r.raise_for_status()
-        data = r.json()
+    except ServiceError as exc:
+        return exc.to_dict()
 
     current = data["current"]
     code = current.get("weather_code", 0)

@@ -1,28 +1,57 @@
 """
 Geocoding adapter — powered by Nominatim (OpenStreetMap).
-No API key required. Rate limit: 1 req/sec per OSM policy.
+No API key required. The usage policy allows at most 1 request per second
+and asks clients to cache results, so both are enforced here.
 """
 
-import httpx
+import asyncio
+import time
+
+from adapters.http import ServiceError, request_json
 
 BASE_URL = "https://nominatim.openstreetmap.org"
-HEADERS = {"User-Agent": "geo-mcp/1.0 (github.com/fjollei/geo-mcp)"}
+
+MIN_INTERVAL_S = 1.0
+CACHE_TTL_S = 24 * 3600
+CACHE_MAX = 1000
+
+_lock = asyncio.Lock()
+_last_request = 0.0
+_cache: dict[tuple, tuple[float, object]] = {}
+
+
+async def _nominatim(path: str, params: dict):
+    """GET a Nominatim endpoint, cached and throttled to 1 request/second."""
+    key = (path, tuple(sorted(params.items())))
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_TTL_S:
+        return hit[1]
+
+    global _last_request
+    async with _lock:
+        wait = _last_request + MIN_INTERVAL_S - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        try:
+            data = await request_json("GET", f"{BASE_URL}{path}", service="Nominatim", params=params)
+        finally:
+            _last_request = time.monotonic()
+
+    if len(_cache) >= CACHE_MAX:
+        _cache.pop(next(iter(_cache)))
+    _cache[key] = (time.monotonic(), data)
+    return data
 
 
 async def geocode(address: str) -> dict:
     """Address → lat/lon."""
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{BASE_URL}/search",
-            params={"q": address, "format": "json", "limit": 1},
-            headers=HEADERS,
-            timeout=10,
-        )
-        r.raise_for_status()
-        results = r.json()
+    try:
+        results = await _nominatim("/search", {"q": address, "format": "json", "limit": 1})
+    except ServiceError as exc:
+        return exc.to_dict()
 
     if not results:
-        return {"error": f"No results found for: {address}"}
+        return {"error": f"No results found for: {address}", "status_code": 404}
 
     top = results[0]
     return {
@@ -37,18 +66,13 @@ async def geocode(address: str) -> dict:
 
 async def reverse_geocode(lat: float, lon: float) -> dict:
     """lat/lon → address."""
-    async with httpx.AsyncClient() as client:
-        r = await client.get(
-            f"{BASE_URL}/reverse",
-            params={"lat": lat, "lon": lon, "format": "json"},
-            headers=HEADERS,
-            timeout=10,
-        )
-        r.raise_for_status()
-        data = r.json()
+    try:
+        data = await _nominatim("/reverse", {"lat": lat, "lon": lon, "format": "json"})
+    except ServiceError as exc:
+        return exc.to_dict()
 
     if "error" in data:
-        return {"error": data["error"]}
+        return {"error": data["error"], "status_code": 404}
 
     addr = data.get("address", {})
     return {

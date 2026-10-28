@@ -14,6 +14,13 @@ app = FastAPI(
 )
 
 
+def _respond(result: dict):
+    """Adapter errors are dicts with "error" (and an optional "status_code")."""
+    if result.get("error"):
+        return JSONResponse(result, status_code=result.get("status_code", 400))
+    return result
+
+
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}
@@ -36,7 +43,7 @@ async def root():
 
 @app.get("/geocode")
 async def geocode_route(address: str = Query(..., description="The address to geocode")):
-    return await geocode(address)
+    return _respond(await geocode(address))
 
 
 @app.get("/reverse-geocode")
@@ -44,12 +51,12 @@ async def reverse_geocode_route(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
 ):
-    return await reverse_geocode(lat, lon)
+    return _respond(await reverse_geocode(lat, lon))
 
 
 @app.get("/weather")
 async def weather_route(city: str = Query(..., description="City name")):
-    return await get_weather(city)
+    return _respond(await get_weather(city))
 
 
 @app.get("/timezone")
@@ -57,7 +64,7 @@ async def timezone_route(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
 ):
-    return await get_timezone(lat, lon)
+    return _respond(await get_timezone(lat, lon))
 
 
 @app.get("/places")
@@ -67,7 +74,4 @@ async def places_route(
     category: str = Query(..., description="Place category"),
     radius_m: int = Query(1000, description="Search radius in meters"),
 ):
-    result = await nearby_places(lat, lon, category, radius_m)
-    if isinstance(result, dict) and result.get("error"):
-        return JSONResponse(result, status_code=result.get("status_code", 400))
-    return result
+    return _respond(await nearby_places(lat, lon, category, radius_m))
