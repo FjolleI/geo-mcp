@@ -39,6 +39,16 @@ pip install -r requirements.txt
 python server.py
 ```
 
+### Run with uvx
+
+No clone or virtualenv needed — [uv](https://docs.astral.sh/uv/) installs and runs it in one step:
+
+```bash
+uvx --from git+https://github.com/FjolleI/geo-mcp geo-mcp
+```
+
+From a local checkout: `uvx --from . geo-mcp`
+
 ### Run with Docker
 
 ```bash
@@ -75,6 +85,19 @@ Add this to your `claude_desktop_config.json`:
     "geo-mcp": {
       "command": "python",
       "args": ["/absolute/path/to/geo-mcp/server.py"]
+    }
+  }
+}
+```
+
+Or, using uvx (no local checkout required):
+
+```json
+{
+  "mcpServers": {
+    "geo-mcp": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/FjolleI/geo-mcp", "geo-mcp"]
     }
   }
 }
@@ -117,6 +140,7 @@ geo-mcp/
 │   ├── weather.py         # Open-Meteo weather
 │   ├── timezone.py        # timeapi.io timezone
 │   └── places.py          # Overpass POI search
+├── pyproject.toml         # Packaging + `geo-mcp` entry point (uvx)
 ├── requirements.txt
 ├── Dockerfile
 └── claude_desktop_config.json
@@ -153,14 +177,32 @@ geo-mcp/
 
 Supported categories: `restaurant`, `cafe`, `hospital`, `pharmacy`, `school`, `supermarket`, `park`, `hotel`, `bank`, `gas_station`
 
+Returns up to 10 places: open first, then unknown, then closed, each group sorted by distance. `open_now` is evaluated from the OSM `opening_hours` tag for the place's local time. `radius_m` is limited to 5000.
+
 ```json
 {
   "category": "cafe",
-  "count": 8,
+  "radius_m": 500,
+  "count": 10,
+  "total_found": 38,
   "places": [
-    { "name": "Monmouth Coffee", "lat": 51.513, "lon": -0.122, "opening_hours": "Mo-Fr 07:30-18:00" }
+    {
+      "name": "Monmouth Coffee",
+      "lat": 51.513,
+      "lon": -0.122,
+      "distance_m": 140,
+      "address": "Monmouth Street 27, WC2H 9EU London",
+      "opening_hours": "Mo-Fr 07:30-18:00",
+      "open_now": "yes"
+    }
   ]
 }
+```
+
+### Running the tests
+
+```bash
+uv run --group dev pytest
 ```
 
 ---
