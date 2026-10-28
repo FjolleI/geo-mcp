@@ -50,5 +50,9 @@ async def places_nearby(lat: float, lon: float, category: str, radius_m: int = 1
     return await nearby_places(lat, lon, category, radius_m)
 
 
-if __name__ == "__main__":
+def main():
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

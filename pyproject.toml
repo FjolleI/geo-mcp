@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geo-mcp"
+version = "0.1.0"
+description = "Geospatial MCP server: weather, geocoding, timezone and nearby places via free open APIs"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[project.scripts]
+geo-mcp = "server:main"
+
+[project.urls]
+Repository = "https://github.com/FjolleI/geo-mcp"
+
+[tool.setuptools]
+py-modules = ["server"]
+packages = ["adapters"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }

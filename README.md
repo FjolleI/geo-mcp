@@ -39,6 +39,16 @@ pip install -r requirements.txt
 python server.py
 ```
 
+### Run with uvx
+
+No clone or virtualenv needed — [uv](https://docs.astral.sh/uv/) installs and runs it in one step:
+
+```bash
+uvx --from git+https://github.com/FjolleI/geo-mcp geo-mcp
+```
+
+From a local checkout: `uvx --from . geo-mcp`
+
 ### Run with Docker
 
 ```bash
@@ -75,6 +85,19 @@ Add this to your `claude_desktop_config.json`:
     "geo-mcp": {
       "command": "python",
       "args": ["/absolute/path/to/geo-mcp/server.py"]
+    }
+  }
+}
+```
+
+Or, using uvx (no local checkout required):
+
+```json
+{
+  "mcpServers": {
+    "geo-mcp": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/FjolleI/geo-mcp", "geo-mcp"]
     }
   }
 }
@@ -117,6 +140,7 @@ geo-mcp/
 │   ├── weather.py         # Open-Meteo weather
 │   ├── timezone.py        # timeapi.io timezone
 │   └── places.py          # Overpass POI search
+├── pyproject.toml         # Packaging + `geo-mcp` entry point (uvx)
 ├── requirements.txt
 ├── Dockerfile
 └── claude_desktop_config.json
